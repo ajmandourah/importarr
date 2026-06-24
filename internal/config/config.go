@@ -29,18 +29,14 @@ func loadEnv() []models.Instance {
 	for _, prefix := range prefixes {
 		url := os.Getenv(prefix + "_URL")
 		key := os.Getenv(prefix + "_API_KEY")
-		instanceType := os.Getenv(prefix + "_TYPE")
 
 		if url == "" || key == "" {
 			continue
 		}
-		if instanceType == "" {
-			instanceType = strings.ToLower(prefix)
-		}
 
 		instances = append(instances, models.Instance{
 			Name:   strings.ToLower(prefix),
-			Type:   instanceType,
+			Type:   strings.ToLower(prefix),
 			URL:    url,
 			APIKey: key,
 		})
