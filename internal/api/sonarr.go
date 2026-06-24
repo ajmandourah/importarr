@@ -45,15 +45,25 @@ func (c *SonarrClient) GetManualImport(record models.QueueRecord) ([]models.Manu
 		files[i].SeriesID = record.SeriesOrMovieID()
 		files[i].SeasonNumber = record.SeasonNumber
 		files[i].DownloadID = record.DownloadID
+		if len(files[i].EpisodeIDs) == 0 {
+			for _, ep := range files[i].Episodes {
+				files[i].EpisodeIDs = append(files[i].EpisodeIDs, ep.ID)
+			}
+		}
+		fmt.Printf("DEBUG GET file %s: seriesID=%d season=%d episodeIDs=%v\n", files[i].Path, files[i].SeriesID, files[i].SeasonNumber, files[i].EpisodeIDs)
 	}
 	return files, nil
 }
 
 func (c *SonarrClient) PostManualImport(files []models.ManualImportFile) ([]models.ImportResult, error) {
+	for i := range files {
+		files[i].Episodes = nil
+	}
 	jsonData, err := marshal(files)
 	if err != nil {
 		return nil, err
 	}
+	fmt.Printf("DEBUG POST payload: %s\n", string(jsonData))
 
 	req, err := http.NewRequest("POST", c.baseClient.endpoint("/api/v3/manualimport"), strings.NewReader(string(jsonData)))
 	if err != nil {

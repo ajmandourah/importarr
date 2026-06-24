@@ -37,20 +37,28 @@ func (r QueueRecord) SeriesOrMovieID() int {
 }
 
 type ManualImportFile struct {
-	ID                 int        `json:"id,omitempty"`
-	Path               string     `json:"path,omitempty"`
-	SeriesID           int        `json:"seriesId,omitempty"`
-	MovieID            int        `json:"movieId,omitempty"`
-	SeasonNumber       int        `json:"seasonNumber,omitempty"`
-	EpisodeIDs         []int      `json:"episodeIds,omitempty"`
-	DownloadID         string     `json:"downloadId,omitempty"`
-	Quality            *Quality   `json:"quality,omitempty"`
-	Languages          []Language `json:"languages,omitempty"`
-	ReleaseGroup       string     `json:"releaseGroup,omitempty"`
-	IndexerFlags       int        `json:"indexerFlags,omitempty"`
-	ReleaseType        string     `json:"releaseType,omitempty"`
-	Rejected           bool       `json:"rejected,omitempty"`
-	PreviouslyImported bool       `json:"previouslyImported,omitempty"`
+	ID                 int           `json:"id,omitempty"`
+	Path               string        `json:"path,omitempty"`
+	SeriesID           int           `json:"seriesId,omitempty"`
+	MovieID            int           `json:"movieId,omitempty"`
+	SeasonNumber       int           `json:"seasonNumber,omitempty"`
+	EpisodeIDs         []int         `json:"episodeIds,omitempty"`
+	Episodes           []EpisodeInfo `json:"episodes,omitempty"`
+	DownloadID         string        `json:"downloadId,omitempty"`
+	Quality            *Quality      `json:"quality,omitempty"`
+	Languages          []Language    `json:"languages,omitempty"`
+	ReleaseGroup       string        `json:"releaseGroup,omitempty"`
+	IndexerFlags       int           `json:"indexerFlags,omitempty"`
+	ReleaseType        string        `json:"releaseType,omitempty"`
+	Rejected           bool          `json:"rejected,omitempty"`
+	PreviouslyImported bool          `json:"previouslyImported,omitempty"`
+}
+
+type EpisodeInfo struct {
+	ID            int    `json:"id"`
+	SeasonNumber  int    `json:"seasonNumber"`
+	EpisodeNumber int    `json:"episodeNumber"`
+	Title         string `json:"title,omitempty"`
 }
 
 type Language struct {
