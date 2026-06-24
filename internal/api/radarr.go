@@ -63,6 +63,12 @@ func (c *RadarrClient) PostManualImport(files []models.ManualImportFile) ([]mode
 		DownloadID   string            `json:"downloadId"`
 	}
 
+	type importCommand struct {
+		Name       string     `json:"name"`
+		Files      []postFile `json:"files"`
+		ImportMode string     `json:"importMode"`
+	}
+
 	postFiles := make([]postFile, len(files))
 	for i, f := range files {
 		postFiles[i] = postFile{
@@ -77,12 +83,18 @@ func (c *RadarrClient) PostManualImport(files []models.ManualImportFile) ([]mode
 		}
 	}
 
-	jsonData, err := json.Marshal(postFiles)
+	cmd := importCommand{
+		Name:       "ManualImport",
+		Files:      postFiles,
+		ImportMode: "auto",
+	}
+
+	jsonData, err := json.Marshal(cmd)
 	if err != nil {
 		return nil, err
 	}
 
-	req, err := http.NewRequest("POST", c.baseClient.endpoint("/api/v3/manualimport"), strings.NewReader(string(jsonData)))
+	req, err := http.NewRequest("POST", c.baseClient.endpoint("/api/v3/command"), strings.NewReader(string(jsonData)))
 	if err != nil {
 		return nil, err
 	}
@@ -97,22 +109,14 @@ func (c *RadarrClient) PostManualImport(files []models.ManualImportFile) ([]mode
 	defer resp.Body.Close()
 
 	if resp.StatusCode > 299 {
-		return nil, fmt.Errorf("import failed: %s", resp.Status)
-	}
-
-	var results []postFile
-	if err := json.NewDecoder(resp.Body).Decode(&results); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("import command failed: %s", resp.Status)
 	}
 
 	var importResults []models.ImportResult
-	for _, r := range results {
-		status := "imported"
-		message := ""
+	for _, f := range files {
 		importResults = append(importResults, models.ImportResult{
-			Path:    r.Path,
-			Status:  status,
-			Message: message,
+			Path:   f.Path,
+			Status: "imported",
 		})
 	}
 	return importResults, nil

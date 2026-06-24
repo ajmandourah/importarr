@@ -63,12 +63,18 @@ func (c *SonarrClient) PostManualImport(files []models.ManualImportFile) ([]mode
 		FolderName   string            `json:"folderName"`
 		SeriesID     int               `json:"seriesId"`
 		EpisodeIDs   []int             `json:"episodeIds"`
+		ReleaseGroup string            `json:"releaseGroup"`
 		Quality      *models.Quality   `json:"quality"`
 		Languages    []models.Language `json:"languages"`
-		ReleaseGroup string            `json:"releaseGroup"`
 		IndexerFlags int               `json:"indexerFlags"`
 		ReleaseType  string            `json:"releaseType"`
 		DownloadID   string            `json:"downloadId"`
+	}
+
+	type importCommand struct {
+		Name       string     `json:"name"`
+		Files      []postFile `json:"files"`
+		ImportMode string     `json:"importMode"`
 	}
 
 	postFiles := make([]postFile, len(files))
@@ -78,23 +84,27 @@ func (c *SonarrClient) PostManualImport(files []models.ManualImportFile) ([]mode
 			FolderName:   f.FolderName,
 			SeriesID:     f.SeriesID,
 			EpisodeIDs:   f.EpisodeIDs,
+			ReleaseGroup: f.ReleaseGroup,
 			Quality:      f.Quality,
 			Languages:    f.Languages,
-			ReleaseGroup: f.ReleaseGroup,
 			IndexerFlags: f.IndexerFlags,
 			ReleaseType:  f.ReleaseType,
 			DownloadID:   f.DownloadID,
 		}
 	}
 
-	jsonData, err := json.Marshal(postFiles)
+	cmd := importCommand{
+		Name:       "ManualImport",
+		Files:      postFiles,
+		ImportMode: "auto",
+	}
+
+	jsonData, err := json.Marshal(cmd)
 	if err != nil {
 		return nil, err
 	}
 
-	fmt.Printf("DEBUG POST payload: %s\n", string(jsonData))
-
-	req, err := http.NewRequest("POST", c.baseClient.endpoint("/api/v3/manualimport"), strings.NewReader(string(jsonData)))
+	req, err := http.NewRequest("POST", c.baseClient.endpoint("/api/v3/command"), strings.NewReader(string(jsonData)))
 	if err != nil {
 		return nil, err
 	}
@@ -109,24 +119,15 @@ func (c *SonarrClient) PostManualImport(files []models.ManualImportFile) ([]mode
 	defer resp.Body.Close()
 
 	if resp.StatusCode > 299 {
-		return nil, fmt.Errorf("import failed: %s", resp.Status)
-	}
-
-	var results []postFile
-	if err := json.NewDecoder(resp.Body).Decode(&results); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("import command failed: %s", resp.Status)
 	}
 
 	var importResults []models.ImportResult
-	for i, r := range results {
-		status := "imported"
-		message := ""
+	for _, f := range files {
 		importResults = append(importResults, models.ImportResult{
-			Path:    r.Path,
-			Status:  status,
-			Message: message,
+			Path:   f.Path,
+			Status: "imported",
 		})
-		_ = i
 	}
 	return importResults, nil
 }
