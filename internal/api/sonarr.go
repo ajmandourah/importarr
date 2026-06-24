@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"path/filepath"
 	"strings"
 
 	"importarr/internal/models"
@@ -15,9 +16,8 @@ type SonarrClient struct {
 }
 
 type manualImportCommand struct {
-	Name     string  `json:"name"`
-	Body     cmdBody `json:"body"`
-	Priority string  `json:"priority"`
+	Name string  `json:"name"`
+	Body cmdBody `json:"body"`
 }
 
 type cmdBody struct {
@@ -25,12 +25,6 @@ type cmdBody struct {
 	SendUpdatesToClient bool                      `json:"sendUpdatesToClient"`
 	RequiresDiskAccess  bool                      `json:"requiresDiskAccess"`
 	ImportMode          string                    `json:"importMode"`
-	UpdateScheduledTask bool                      `json:"updateScheduledTask"`
-	IsExclusive         bool                      `json:"isExclusive"`
-	IsLongRunning       bool                      `json:"isLongRunning"`
-	Name                string                    `json:"name"`
-	Trigger             string                    `json:"trigger"`
-	SuppressMessages    bool                      `json:"suppressMessages"`
 }
 
 func (c *SonarrClient) GetQueue() ([]models.QueueRecord, error) {
@@ -65,7 +59,7 @@ func (c *SonarrClient) GetManualImport(record models.QueueRecord) ([]models.Manu
 		files[i].SeriesID = record.SeriesOrMovieID()
 		files[i].SeasonNumber = record.SeasonNumber
 		files[i].DownloadID = record.DownloadID
-		files[i].FolderName = record.OutputPath
+		files[i].FolderName = filepath.Base(record.OutputPath)
 		if len(files[i].EpisodeIDs) == 0 {
 			for _, ep := range files[i].Episodes {
 				files[i].EpisodeIDs = append(files[i].EpisodeIDs, ep.ID)
@@ -87,14 +81,7 @@ func (c *SonarrClient) PostManualImport(files []models.ManualImportFile) ([]mode
 			SendUpdatesToClient: true,
 			RequiresDiskAccess:  true,
 			ImportMode:          "auto",
-			UpdateScheduledTask: true,
-			IsExclusive:         false,
-			IsLongRunning:       false,
-			Name:                "ManualImport",
-			Trigger:             "manual",
-			SuppressMessages:    false,
 		},
-		Priority: "high",
 	}
 
 	jsonData, err := json.Marshal(cmd)
@@ -118,11 +105,6 @@ func (c *SonarrClient) PostManualImport(files []models.ManualImportFile) ([]mode
 
 	if resp.StatusCode > 299 {
 		return nil, fmt.Errorf("import command failed: %s", resp.Status)
-	}
-
-	var commandResult map[string]interface{}
-	if err := json.NewDecoder(resp.Body).Decode(&commandResult); err != nil {
-		return nil, err
 	}
 
 	var importResults []models.ImportResult

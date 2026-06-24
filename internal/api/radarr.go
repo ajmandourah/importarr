@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"path/filepath"
 	"strings"
 
 	"importarr/internal/models"
@@ -15,9 +16,8 @@ type RadarrClient struct {
 }
 
 type radarrManualImportCommand struct {
-	Name     string        `json:"name"`
-	Body     radarrCmdBody `json:"body"`
-	Priority string        `json:"priority"`
+	Name string        `json:"name"`
+	Body radarrCmdBody `json:"body"`
 }
 
 type radarrCmdBody struct {
@@ -25,12 +25,6 @@ type radarrCmdBody struct {
 	SendUpdatesToClient bool                      `json:"sendUpdatesToClient"`
 	RequiresDiskAccess  bool                      `json:"requiresDiskAccess"`
 	ImportMode          string                    `json:"importMode"`
-	UpdateScheduledTask bool                      `json:"updateScheduledTask"`
-	IsExclusive         bool                      `json:"isExclusive"`
-	IsLongRunning       bool                      `json:"isLongRunning"`
-	Name                string                    `json:"name"`
-	Trigger             string                    `json:"trigger"`
-	SuppressMessages    bool                      `json:"suppressMessages"`
 }
 
 func (c *RadarrClient) GetQueue() ([]models.QueueRecord, error) {
@@ -64,7 +58,7 @@ func (c *RadarrClient) GetManualImport(record models.QueueRecord) ([]models.Manu
 	for i := range files {
 		files[i].MovieID = record.SeriesOrMovieID()
 		files[i].DownloadID = record.DownloadID
-		files[i].FolderName = record.OutputPath
+		files[i].FolderName = filepath.Base(record.OutputPath)
 	}
 	return files, nil
 }
@@ -81,14 +75,7 @@ func (c *RadarrClient) PostManualImport(files []models.ManualImportFile) ([]mode
 			SendUpdatesToClient: true,
 			RequiresDiskAccess:  true,
 			ImportMode:          "auto",
-			UpdateScheduledTask: true,
-			IsExclusive:         false,
-			IsLongRunning:       false,
-			Name:                "ManualImport",
-			Trigger:             "manual",
-			SuppressMessages:    false,
 		},
-		Priority: "high",
 	}
 
 	jsonData, err := json.Marshal(cmd)
@@ -112,11 +99,6 @@ func (c *RadarrClient) PostManualImport(files []models.ManualImportFile) ([]mode
 
 	if resp.StatusCode > 299 {
 		return nil, fmt.Errorf("import command failed: %s", resp.Status)
-	}
-
-	var commandResult map[string]interface{}
-	if err := json.NewDecoder(resp.Body).Decode(&commandResult); err != nil {
-		return nil, err
 	}
 
 	var importResults []models.ImportResult
