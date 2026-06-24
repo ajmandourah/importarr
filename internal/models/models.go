@@ -37,19 +37,24 @@ func (r QueueRecord) SeriesOrMovieID() int {
 }
 
 type ManualImportFile struct {
-	Path               string   `json:"path,omitempty"`
-	SeriesID           int      `json:"seriesId,omitempty"`
-	MovieID            int      `json:"movieId,omitempty"`
-	SeasonNumber       int      `json:"seasonNumber,omitempty"`
-	EpisodeIDs         []int    `json:"episodeIds,omitempty"`
-	DownloadID         string   `json:"downloadId,omitempty"`
-	Quality            *Quality `json:"quality,omitempty"`
-	Languages          []string `json:"languages,omitempty"`
-	ReleaseGroup       string   `json:"releaseGroup,omitempty"`
-	IndexerFlags       int      `json:"indexerFlags,omitempty"`
-	ReleaseType        int      `json:"releaseType,omitempty"`
-	Rejected           bool     `json:"rejected,omitempty"`
-	PreviouslyImported bool     `json:"previouslyImported,omitempty"`
+	Path               string     `json:"path,omitempty"`
+	SeriesID           int        `json:"seriesId,omitempty"`
+	MovieID            int        `json:"movieId,omitempty"`
+	SeasonNumber       int        `json:"seasonNumber,omitempty"`
+	EpisodeIDs         []int      `json:"episodeIds,omitempty"`
+	DownloadID         string     `json:"downloadId,omitempty"`
+	Quality            *Quality   `json:"quality,omitempty"`
+	Languages          []Language `json:"languages,omitempty"`
+	ReleaseGroup       string     `json:"releaseGroup,omitempty"`
+	IndexerFlags       int        `json:"indexerFlags,omitempty"`
+	ReleaseType        int        `json:"releaseType,omitempty"`
+	Rejected           bool       `json:"rejected,omitempty"`
+	PreviouslyImported bool       `json:"previouslyImported,omitempty"`
+}
+
+type Language struct {
+	Name string `json:"name"`
+	ID   int    `json:"id"`
 }
 
 type Quality struct {
