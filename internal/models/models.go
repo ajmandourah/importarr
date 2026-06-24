@@ -4,7 +4,7 @@ import "time"
 
 type Instance struct {
 	Name   string
-	Type   string // "sonarr" or "radarr"
+	Type   string
 	URL    string
 	APIKey string
 }
@@ -37,6 +37,7 @@ func (r QueueRecord) SeriesOrMovieID() int {
 }
 
 type ManualImportFile struct {
+	ID                 int        `json:"id,omitempty"`
 	Path               string     `json:"path,omitempty"`
 	SeriesID           int        `json:"seriesId,omitempty"`
 	MovieID            int        `json:"movieId,omitempty"`
@@ -47,7 +48,7 @@ type ManualImportFile struct {
 	Languages          []Language `json:"languages,omitempty"`
 	ReleaseGroup       string     `json:"releaseGroup,omitempty"`
 	IndexerFlags       int        `json:"indexerFlags,omitempty"`
-	ReleaseType        int        `json:"releaseType,omitempty"`
+	ReleaseType        string     `json:"releaseType,omitempty"`
 	Rejected           bool       `json:"rejected,omitempty"`
 	PreviouslyImported bool       `json:"previouslyImported,omitempty"`
 }
@@ -63,13 +64,16 @@ type Quality struct {
 }
 
 type QualityItem struct {
-	Quality int    `json:"quality"`
-	Name    string `json:"name"`
+	ID         int    `json:"id"`
+	Name       string `json:"name"`
+	Source     string `json:"source"`
+	Resolution int    `json:"resolution"`
 }
 
 type Revision struct {
-	Version int `json:"version"`
-	Real    int `json:"real"`
+	Version  int  `json:"version"`
+	Real     int  `json:"real"`
+	IsRepack bool `json:"isRepack"`
 }
 
 type QueueResponse struct {
