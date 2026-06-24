@@ -1,6 +1,7 @@
 package api
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -11,6 +12,25 @@ import (
 
 type RadarrClient struct {
 	*baseClient
+}
+
+type radarrManualImportCommand struct {
+	Name     string        `json:"name"`
+	Body     radarrCmdBody `json:"body"`
+	Priority string        `json:"priority"`
+}
+
+type radarrCmdBody struct {
+	Files               []models.ManualImportFile `json:"files"`
+	SendUpdatesToClient bool                      `json:"sendUpdatesToClient"`
+	RequiresDiskAccess  bool                      `json:"requiresDiskAccess"`
+	ImportMode          string                    `json:"importMode"`
+	UpdateScheduledTask bool                      `json:"updateScheduledTask"`
+	IsExclusive         bool                      `json:"isExclusive"`
+	IsLongRunning       bool                      `json:"isLongRunning"`
+	Name                string                    `json:"name"`
+	Trigger             string                    `json:"trigger"`
+	SuppressMessages    bool                      `json:"suppressMessages"`
 }
 
 func (c *RadarrClient) GetQueue() ([]models.QueueRecord, error) {
@@ -44,17 +64,39 @@ func (c *RadarrClient) GetManualImport(record models.QueueRecord) ([]models.Manu
 	for i := range files {
 		files[i].MovieID = record.SeriesOrMovieID()
 		files[i].DownloadID = record.DownloadID
+		files[i].FolderName = record.OutputPath
 	}
 	return files, nil
 }
 
 func (c *RadarrClient) PostManualImport(files []models.ManualImportFile) ([]models.ImportResult, error) {
-	jsonData, err := marshal(files)
+	for i := range files {
+		files[i].Episodes = nil
+	}
+
+	cmd := radarrManualImportCommand{
+		Name: "ManualImport",
+		Body: radarrCmdBody{
+			Files:               files,
+			SendUpdatesToClient: true,
+			RequiresDiskAccess:  true,
+			ImportMode:          "auto",
+			UpdateScheduledTask: true,
+			IsExclusive:         false,
+			IsLongRunning:       false,
+			Name:                "ManualImport",
+			Trigger:             "manual",
+			SuppressMessages:    false,
+		},
+		Priority: "high",
+	}
+
+	jsonData, err := json.Marshal(cmd)
 	if err != nil {
 		return nil, err
 	}
 
-	req, err := http.NewRequest("POST", c.baseClient.endpoint("/api/v3/manualimport"), strings.NewReader(string(jsonData)))
+	req, err := http.NewRequest("POST", c.baseClient.endpoint("/api/v3/command"), strings.NewReader(string(jsonData)))
 	if err != nil {
 		return nil, err
 	}
@@ -69,25 +111,18 @@ func (c *RadarrClient) PostManualImport(files []models.ManualImportFile) ([]mode
 	defer resp.Body.Close()
 
 	if resp.StatusCode > 299 {
-		return nil, fmt.Errorf("import failed: %s", resp.Status)
+		return nil, fmt.Errorf("import command failed: %s", resp.Status)
 	}
 
-	var results []models.ManualImportFile
-	if err := jsonNewDecoder(resp.Body).Decode(&results); err != nil {
+	var commandResult map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&commandResult); err != nil {
 		return nil, err
 	}
 
 	var importResults []models.ImportResult
-	for _, f := range results {
+	for _, f := range files {
 		status := "imported"
 		message := ""
-		if f.Rejected {
-			status = "rejected"
-			message = "file rejected by Radarr"
-		} else if f.PreviouslyImported {
-			status = "skipped"
-			message = "already imported"
-		}
 		importResults = append(importResults, models.ImportResult{
 			Path:    f.Path,
 			Status:  status,

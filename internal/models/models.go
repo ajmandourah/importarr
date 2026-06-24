@@ -39,6 +39,7 @@ func (r QueueRecord) SeriesOrMovieID() int {
 type ManualImportFile struct {
 	ID                 int           `json:"id,omitempty"`
 	Path               string        `json:"path,omitempty"`
+	FolderName         string        `json:"folderName,omitempty"`
 	SeriesID           int           `json:"seriesId,omitempty"`
 	MovieID            int           `json:"movieId,omitempty"`
 	SeasonNumber       int           `json:"seasonNumber,omitempty"`
@@ -48,7 +49,7 @@ type ManualImportFile struct {
 	Quality            *Quality      `json:"quality,omitempty"`
 	Languages          []Language    `json:"languages,omitempty"`
 	ReleaseGroup       string        `json:"releaseGroup,omitempty"`
-	IndexerFlags       int           `json:"indexerFlags,omitempty"`
+	IndexerFlags       int           `json:"indexerFlags"`
 	ReleaseType        string        `json:"releaseType,omitempty"`
 	Rejected           bool          `json:"rejected,omitempty"`
 	PreviouslyImported bool          `json:"previouslyImported,omitempty"`

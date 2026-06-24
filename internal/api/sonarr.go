@@ -1,6 +1,7 @@
 package api
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -11,6 +12,25 @@ import (
 
 type SonarrClient struct {
 	*baseClient
+}
+
+type manualImportCommand struct {
+	Name     string  `json:"name"`
+	Body     cmdBody `json:"body"`
+	Priority string  `json:"priority"`
+}
+
+type cmdBody struct {
+	Files               []models.ManualImportFile `json:"files"`
+	SendUpdatesToClient bool                      `json:"sendUpdatesToClient"`
+	RequiresDiskAccess  bool                      `json:"requiresDiskAccess"`
+	ImportMode          string                    `json:"importMode"`
+	UpdateScheduledTask bool                      `json:"updateScheduledTask"`
+	IsExclusive         bool                      `json:"isExclusive"`
+	IsLongRunning       bool                      `json:"isLongRunning"`
+	Name                string                    `json:"name"`
+	Trigger             string                    `json:"trigger"`
+	SuppressMessages    bool                      `json:"suppressMessages"`
 }
 
 func (c *SonarrClient) GetQueue() ([]models.QueueRecord, error) {
@@ -45,12 +65,12 @@ func (c *SonarrClient) GetManualImport(record models.QueueRecord) ([]models.Manu
 		files[i].SeriesID = record.SeriesOrMovieID()
 		files[i].SeasonNumber = record.SeasonNumber
 		files[i].DownloadID = record.DownloadID
+		files[i].FolderName = record.OutputPath
 		if len(files[i].EpisodeIDs) == 0 {
 			for _, ep := range files[i].Episodes {
 				files[i].EpisodeIDs = append(files[i].EpisodeIDs, ep.ID)
 			}
 		}
-		fmt.Printf("DEBUG GET file %s: seriesID=%d season=%d episodeIDs=%v\n", files[i].Path, files[i].SeriesID, files[i].SeasonNumber, files[i].EpisodeIDs)
 	}
 	return files, nil
 }
@@ -59,13 +79,30 @@ func (c *SonarrClient) PostManualImport(files []models.ManualImportFile) ([]mode
 	for i := range files {
 		files[i].Episodes = nil
 	}
-	jsonData, err := marshal(files)
+
+	cmd := manualImportCommand{
+		Name: "ManualImport",
+		Body: cmdBody{
+			Files:               files,
+			SendUpdatesToClient: true,
+			RequiresDiskAccess:  true,
+			ImportMode:          "auto",
+			UpdateScheduledTask: true,
+			IsExclusive:         false,
+			IsLongRunning:       false,
+			Name:                "ManualImport",
+			Trigger:             "manual",
+			SuppressMessages:    false,
+		},
+		Priority: "high",
+	}
+
+	jsonData, err := json.Marshal(cmd)
 	if err != nil {
 		return nil, err
 	}
-	fmt.Printf("DEBUG POST payload: %s\n", string(jsonData))
 
-	req, err := http.NewRequest("POST", c.baseClient.endpoint("/api/v3/manualimport"), strings.NewReader(string(jsonData)))
+	req, err := http.NewRequest("POST", c.baseClient.endpoint("/api/v3/command"), strings.NewReader(string(jsonData)))
 	if err != nil {
 		return nil, err
 	}
@@ -80,25 +117,18 @@ func (c *SonarrClient) PostManualImport(files []models.ManualImportFile) ([]mode
 	defer resp.Body.Close()
 
 	if resp.StatusCode > 299 {
-		return nil, fmt.Errorf("import failed: %s", resp.Status)
+		return nil, fmt.Errorf("import command failed: %s", resp.Status)
 	}
 
-	var results []models.ManualImportFile
-	if err := jsonNewDecoder(resp.Body).Decode(&results); err != nil {
+	var commandResult map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&commandResult); err != nil {
 		return nil, err
 	}
 
 	var importResults []models.ImportResult
-	for _, f := range results {
+	for _, f := range files {
 		status := "imported"
 		message := ""
-		if f.Rejected {
-			status = "rejected"
-			message = "file rejected by Sonarr"
-		} else if f.PreviouslyImported {
-			status = "skipped"
-			message = "already imported"
-		}
 		importResults = append(importResults, models.ImportResult{
 			Path:    f.Path,
 			Status:  status,
