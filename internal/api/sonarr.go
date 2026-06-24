@@ -15,18 +15,6 @@ type SonarrClient struct {
 	*baseClient
 }
 
-type manualImportCommand struct {
-	Name string  `json:"name"`
-	Body cmdBody `json:"body"`
-}
-
-type cmdBody struct {
-	Files               []any  `json:"files"`
-	SendUpdatesToClient bool   `json:"sendUpdatesToClient"`
-	RequiresDiskAccess  bool   `json:"requiresDiskAccess"`
-	ImportMode          string `json:"importMode"`
-}
-
 func (c *SonarrClient) GetQueue() ([]models.QueueRecord, error) {
 	var resp models.QueueResponse
 	err := c.request("GET", "/api/v3/queue?pageSize=5000", nil, &resp)
@@ -83,7 +71,7 @@ func (c *SonarrClient) PostManualImport(files []models.ManualImportFile) ([]mode
 		DownloadID   string            `json:"downloadId"`
 	}
 
-	postFiles := make([]any, len(files))
+	postFiles := make([]postFile, len(files))
 	for i, f := range files {
 		postFiles[i] = postFile{
 			Path:         f.Path,
@@ -99,24 +87,14 @@ func (c *SonarrClient) PostManualImport(files []models.ManualImportFile) ([]mode
 		}
 	}
 
-	cmd := manualImportCommand{
-		Name: "ManualImport",
-		Body: cmdBody{
-			Files:               postFiles,
-			SendUpdatesToClient: true,
-			RequiresDiskAccess:  true,
-			ImportMode:          "auto",
-		},
-	}
-
-	jsonData, err := json.Marshal(cmd)
+	jsonData, err := json.Marshal(postFiles)
 	if err != nil {
 		return nil, err
 	}
 
 	fmt.Printf("DEBUG POST payload: %s\n", string(jsonData))
 
-	req, err := http.NewRequest("POST", c.baseClient.endpoint("/api/v3/command"), strings.NewReader(string(jsonData)))
+	req, err := http.NewRequest("POST", c.baseClient.endpoint("/api/v3/manualimport"), strings.NewReader(string(jsonData)))
 	if err != nil {
 		return nil, err
 	}
@@ -131,18 +109,24 @@ func (c *SonarrClient) PostManualImport(files []models.ManualImportFile) ([]mode
 	defer resp.Body.Close()
 
 	if resp.StatusCode > 299 {
-		return nil, fmt.Errorf("import command failed: %s", resp.Status)
+		return nil, fmt.Errorf("import failed: %s", resp.Status)
+	}
+
+	var results []postFile
+	if err := json.NewDecoder(resp.Body).Decode(&results); err != nil {
+		return nil, err
 	}
 
 	var importResults []models.ImportResult
-	for _, f := range files {
+	for i, r := range results {
 		status := "imported"
 		message := ""
 		importResults = append(importResults, models.ImportResult{
-			Path:    f.Path,
+			Path:    r.Path,
 			Status:  status,
 			Message: message,
 		})
+		_ = i
 	}
 	return importResults, nil
 }
