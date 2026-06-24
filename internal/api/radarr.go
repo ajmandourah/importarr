@@ -21,10 +21,10 @@ type radarrManualImportCommand struct {
 }
 
 type radarrCmdBody struct {
-	Files               []models.ManualImportFile `json:"files"`
-	SendUpdatesToClient bool                      `json:"sendUpdatesToClient"`
-	RequiresDiskAccess  bool                      `json:"requiresDiskAccess"`
-	ImportMode          string                    `json:"importMode"`
+	Files               []any  `json:"files"`
+	SendUpdatesToClient bool   `json:"sendUpdatesToClient"`
+	RequiresDiskAccess  bool   `json:"requiresDiskAccess"`
+	ImportMode          string `json:"importMode"`
 }
 
 func (c *RadarrClient) GetQueue() ([]models.QueueRecord, error) {
@@ -64,14 +64,35 @@ func (c *RadarrClient) GetManualImport(record models.QueueRecord) ([]models.Manu
 }
 
 func (c *RadarrClient) PostManualImport(files []models.ManualImportFile) ([]models.ImportResult, error) {
-	for i := range files {
-		files[i].Episodes = nil
+	type postFile struct {
+		Path         string            `json:"path"`
+		FolderName   string            `json:"folderName"`
+		MovieID      int               `json:"movieId"`
+		Quality      *models.Quality   `json:"quality"`
+		Languages    []models.Language `json:"languages"`
+		ReleaseGroup string            `json:"releaseGroup"`
+		IndexerFlags int               `json:"indexerFlags"`
+		DownloadID   string            `json:"downloadId"`
+	}
+
+	postFiles := make([]any, len(files))
+	for i, f := range files {
+		postFiles[i] = postFile{
+			Path:         f.Path,
+			FolderName:   f.FolderName,
+			MovieID:      f.MovieID,
+			Quality:      f.Quality,
+			Languages:    f.Languages,
+			ReleaseGroup: f.ReleaseGroup,
+			IndexerFlags: f.IndexerFlags,
+			DownloadID:   f.DownloadID,
+		}
 	}
 
 	cmd := radarrManualImportCommand{
 		Name: "ManualImport",
 		Body: radarrCmdBody{
-			Files:               files,
+			Files:               postFiles,
 			SendUpdatesToClient: true,
 			RequiresDiskAccess:  true,
 			ImportMode:          "auto",

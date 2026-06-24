@@ -21,10 +21,10 @@ type manualImportCommand struct {
 }
 
 type cmdBody struct {
-	Files               []models.ManualImportFile `json:"files"`
-	SendUpdatesToClient bool                      `json:"sendUpdatesToClient"`
-	RequiresDiskAccess  bool                      `json:"requiresDiskAccess"`
-	ImportMode          string                    `json:"importMode"`
+	Files               []any  `json:"files"`
+	SendUpdatesToClient bool   `json:"sendUpdatesToClient"`
+	RequiresDiskAccess  bool   `json:"requiresDiskAccess"`
+	ImportMode          string `json:"importMode"`
 }
 
 func (c *SonarrClient) GetQueue() ([]models.QueueRecord, error) {
@@ -70,14 +70,39 @@ func (c *SonarrClient) GetManualImport(record models.QueueRecord) ([]models.Manu
 }
 
 func (c *SonarrClient) PostManualImport(files []models.ManualImportFile) ([]models.ImportResult, error) {
-	for i := range files {
-		files[i].Episodes = nil
+	type postFile struct {
+		Path         string            `json:"path"`
+		FolderName   string            `json:"folderName"`
+		SeriesID     int               `json:"seriesId"`
+		EpisodeIDs   []int             `json:"episodeIds"`
+		Quality      *models.Quality   `json:"quality"`
+		Languages    []models.Language `json:"languages"`
+		ReleaseGroup string            `json:"releaseGroup"`
+		IndexerFlags int               `json:"indexerFlags"`
+		ReleaseType  string            `json:"releaseType"`
+		DownloadID   string            `json:"downloadId"`
+	}
+
+	postFiles := make([]any, len(files))
+	for i, f := range files {
+		postFiles[i] = postFile{
+			Path:         f.Path,
+			FolderName:   f.FolderName,
+			SeriesID:     f.SeriesID,
+			EpisodeIDs:   f.EpisodeIDs,
+			Quality:      f.Quality,
+			Languages:    f.Languages,
+			ReleaseGroup: f.ReleaseGroup,
+			IndexerFlags: f.IndexerFlags,
+			ReleaseType:  f.ReleaseType,
+			DownloadID:   f.DownloadID,
+		}
 	}
 
 	cmd := manualImportCommand{
 		Name: "ManualImport",
 		Body: cmdBody{
-			Files:               files,
+			Files:               postFiles,
 			SendUpdatesToClient: true,
 			RequiresDiskAccess:  true,
 			ImportMode:          "auto",
@@ -88,6 +113,8 @@ func (c *SonarrClient) PostManualImport(files []models.ManualImportFile) ([]mode
 	if err != nil {
 		return nil, err
 	}
+
+	fmt.Printf("DEBUG POST payload: %s\n", string(jsonData))
 
 	req, err := http.NewRequest("POST", c.baseClient.endpoint("/api/v3/command"), strings.NewReader(string(jsonData)))
 	if err != nil {
