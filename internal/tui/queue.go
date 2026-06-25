@@ -5,7 +5,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/charmbracelet/lipgloss"
 	"importarr/internal/models"
 )
 
@@ -17,43 +16,23 @@ func renderQueue(records []models.QueueRecord, instanceName string) string {
 
 	if len(records) == 0 {
 		b.WriteString(itemUnsel.Render("  No stuck items found.") + "\n")
+		b.WriteString("\n" + footerStyle.Render("  Press Enter to continue"))
 		return panelStyle.Render(b.String())
 	}
 
-	colID := 6
-	colTitle := 50
-	colProtocol := 10
-	colAge := 12
-
-	b.WriteString(lipgloss.NewStyle().Background(base).Render(
-		fmt.Sprintf("%-*s %-*s %-*s %s\n",
-			colID, headerStyle.Render("ID"),
-			colTitle, headerStyle.Render("Title"),
-			colProtocol, headerStyle.Render("Protocol"),
-			headerStyle.Render("Age"))))
-	b.WriteString(lipgloss.NewStyle().Background(base).Render(
-		fmt.Sprintf("%-*s %-*s %-*s %s\n",
-			colID, strings.Repeat("-", colID),
-			colTitle, strings.Repeat("-", colTitle),
-			colProtocol, strings.Repeat("-", colProtocol),
-			strings.Repeat("-", colAge))) + "\n")
-
-	for _, r := range records {
+	for i, r := range records {
 		age := time.Since(r.Added)
 		ageStr := formatDuration(age)
-		title := r.Title
-		if len(title) > colTitle {
-			title = title[:colTitle-3] + "..."
-		}
 
-		b.WriteString(fmt.Sprintf("%-*s %-*s %-*s %s\n",
-			colID, itemUnsel.Render(fmt.Sprintf("%d", r.ID)),
-			colTitle, itemUnsel.Render(title),
-			colProtocol, itemUnsel.Render(r.Protocol),
-			itemUnsel.Render(ageStr)) + "\n")
+		title := r.Title
+		b.WriteString("  " + mauveStyle.Render(fmt.Sprintf("#%d", r.ID)) + " " + mauveStyle.Render(title) + "\n")
+		b.WriteString("  " + itemUnsel.Render("  "+r.Protocol+"  "+ageStr) + "\n")
+		if i < len(records)-1 {
+			b.WriteString("\n")
+		}
 	}
 
-	b.WriteString("\n" + footerStyle.Render("  Press any key to continue"))
+	b.WriteString("\n" + footerStyle.Render("  Press Enter to import, Esc to exit"))
 	return panelStyle.Render(b.String())
 }
 

@@ -71,21 +71,31 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if a.cursor < len(a.instances)-1 {
 					a.cursor++
 				}
-			case "enter", " ":
+			case " ":
 				a.selected[a.cursor] = !a.selected[a.cursor]
-			case "esc", "q":
+			case "enter":
 				if countTrue(a.selected) > 0 {
 					a.phase = phaseQueue
 					a.cursor = 0
 				}
+			case "esc", "q":
+				return a, tea.Quit
 			}
 
 		case phaseQueue:
-			a.phase = phaseImporting
-			a.spinnerStarted = false
+			switch msg.String() {
+			case "enter":
+				a.phase = phaseImporting
+				a.spinnerStarted = false
+			case "esc", "q":
+				a.phase = phaseInstances
+			}
 
 		case phaseImporting:
-			// no input during import
+			switch msg.String() {
+			case "esc", "q":
+				return a, tea.Quit
+			}
 
 		case phaseResults:
 			return a, tea.Quit
@@ -112,20 +122,23 @@ func (a App) View() string {
 		content = renderResults(a.progress)
 	}
 
+	contentWidth := lipgloss.Width(content)
 	contentHeight := lipgloss.Height(content)
-	topPad := (a.height - contentHeight) / 2
-	if topPad < 0 {
-		topPad = 0
+
+	hPad := (a.width - contentWidth) / 2
+	if hPad < 0 {
+		hPad = 0
 	}
-	bottomPad := a.height - contentHeight - topPad
-	if bottomPad < 0 {
-		bottomPad = 0
+	vPad := (a.height - contentHeight) / 2
+	if vPad < 0 {
+		vPad = 0
 	}
 
 	return lipgloss.NewStyle().
-		Background(base).
+		Background(catppuBase).
 		Width(a.width).
-		Padding(topPad, 0, bottomPad, 0).
+		Height(a.height).
+		Padding(vPad, hPad).
 		Render(content)
 }
 

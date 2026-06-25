@@ -4,12 +4,15 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
+	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/log"
 	"github.com/spf13/cobra"
 
 	"importarr/internal/api"
 	"importarr/internal/config"
+	"importarr/internal/logger"
 	"importarr/internal/models"
 	"importarr/internal/tui"
 )
@@ -19,7 +22,10 @@ var (
 	fallback    bool
 	instance    string
 	all         bool
+	interval    time.Duration
 )
+
+var mauveStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#CBA6F7"))
 
 var rootCmd = &cobra.Command{
 	Use:   "importarr",
@@ -36,6 +42,12 @@ var importCmd = &cobra.Command{
 	Use:   "import",
 	Short: "Force import stuck queue items",
 	RunE:  runImport,
+}
+
+var watchCmd = &cobra.Command{
+	Use:   "watch",
+	Short: "Continuously scan and import stuck items at interval",
+	RunE:  runWatch,
 }
 
 var configCmd = &cobra.Command{
@@ -59,9 +71,14 @@ func init() {
 	importCmd.Flags().StringVarP(&instance, "instance", "n", "", "Target specific instance")
 	importCmd.Flags().BoolVarP(&all, "all", "a", false, "Target all instances")
 
+	watchCmd.Flags().DurationVarP(&interval, "interval", "t", 10*time.Minute, "Scan interval (e.g., 5m, 1h)")
+	watchCmd.Flags().BoolVarP(&fallback, "fallback", "f", false, "Remove and search on import failure")
+	watchCmd.Flags().StringVarP(&instance, "instance", "n", "", "Target specific instance")
+	watchCmd.Flags().BoolVarP(&all, "all", "a", false, "Target all instances")
+
 	configCmd.AddCommand(configListCmd)
 
-	rootCmd.AddCommand(scanCmd, importCmd, configCmd)
+	rootCmd.AddCommand(scanCmd, importCmd, watchCmd, configCmd)
 }
 
 func Execute() {
@@ -82,7 +99,7 @@ func runScan(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	l := log.New(os.Stdout)
+	l := logger.New()
 
 	for _, inst := range instances {
 		client, err := api.NewClient(inst)
@@ -100,7 +117,7 @@ func runScan(cmd *cobra.Command, args []string) error {
 		l.Info(fmt.Sprintf("[%s] Found %d stuck item(s)", inst.Name, len(records)))
 		for _, r := range records {
 			msg := extractMessage(r.StatusMessages)
-			l.Info(fmt.Sprintf("  #%d %s [%s]", r.ID, r.Title, msg))
+			l.Info(fmt.Sprintf("  #%d %s [%s]", r.ID, mauveStyle.Render(r.Title), msg))
 		}
 	}
 
@@ -119,7 +136,9 @@ func runImport(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	l := log.New(os.Stdout)
+	l := logger.New()
+
+	totalOk, totalErr := 0, 0
 
 	for _, inst := range instances {
 		client, err := api.NewClient(inst)
@@ -141,10 +160,8 @@ func runImport(cmd *cobra.Command, args []string) error {
 
 		l.Info(fmt.Sprintf("[%s] Processing %d stuck item(s)...", inst.Name, len(records)))
 
-		totalOk, totalErr := 0, 0
-
 		for _, record := range records {
-			l.Info(fmt.Sprintf("  Processing: %s", record.Title))
+			l.Info(fmt.Sprintf("  Processing: %s", mauveStyle.Render(record.Title)))
 
 			files, err := client.GetManualImport(record)
 			if err != nil {
@@ -204,10 +221,110 @@ func runImport(cmd *cobra.Command, args []string) error {
 			}
 		}
 
-		l.Info(fmt.Sprintf("[%s] Done - Imported: %d, Failed: %d", inst.Name, totalOk, totalErr))
+		l.Info(fmt.Sprintf("[%s] Done", inst.Name))
 	}
 
+	l.Info(fmt.Sprintf("Total - Imported: %d, Failed: %d", totalOk, totalErr))
 	return nil
+}
+
+func runWatch(cmd *cobra.Command, args []string) error {
+	instances, err := config.Load()
+	if err != nil {
+		return err
+	}
+	instances = config.FilterInstances(instances, instance, all)
+
+	l := logger.New()
+	l.Info(fmt.Sprintf("Watch mode started (interval: %s)", interval))
+
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+
+	for {
+		runImportLoop(instances, fallback, l)
+		l.Info(fmt.Sprintf("Next scan in %s...", interval))
+		<-ticker.C
+	}
+}
+
+func runImportLoop(instances []models.Instance, fallback bool, l *log.Logger) {
+	for _, inst := range instances {
+		client, err := api.NewClient(inst)
+		if err != nil {
+			l.Error("failed to create client", "instance", inst.Name, "error", err)
+			continue
+		}
+
+		records, err := client.GetQueue()
+		if err != nil {
+			l.Error("failed to fetch queue", "instance", inst.Name, "error", err)
+			continue
+		}
+
+		if len(records) == 0 {
+			l.Info(fmt.Sprintf("[%s] No stuck items", inst.Name))
+			continue
+		}
+
+		l.Info(fmt.Sprintf("[%s] Processing %d stuck item(s)...", inst.Name, len(records)))
+
+		for _, record := range records {
+			l.Info(fmt.Sprintf("  Processing: %s", mauveStyle.Render(record.Title)))
+
+			files, err := client.GetManualImport(record)
+			if err != nil {
+				l.Error("  manualimport GET failed", "error", err)
+				if fallback {
+					if rmErr := client.RemoveFromQueue(record.ID); rmErr != nil {
+						l.Error("  remove failed", "error", rmErr)
+					}
+					if sErr := client.TriggerSearch(record.SeriesOrMovieID(), record.SeasonNumber); sErr != nil {
+						l.Error("  search trigger failed", "error", sErr)
+					}
+				}
+				continue
+			}
+
+			if len(files) == 0 {
+				l.Warn("  No importable files found")
+				if fallback {
+					if rmErr := client.RemoveFromQueue(record.ID); rmErr != nil {
+						l.Error("  remove failed", "error", rmErr)
+					}
+					if sErr := client.TriggerSearch(record.SeriesOrMovieID(), record.SeasonNumber); sErr != nil {
+						l.Error("  search trigger failed", "error", sErr)
+					}
+				}
+				continue
+			}
+
+			results, err := client.PostManualImport(files)
+			if err != nil {
+				l.Error("  import failed", "error", err)
+				if fallback {
+					if rmErr := client.RemoveFromQueue(record.ID); rmErr != nil {
+						l.Error("  remove failed", "error", rmErr)
+					}
+					if sErr := client.TriggerSearch(record.SeriesOrMovieID(), record.SeasonNumber); sErr != nil {
+						l.Error("  search trigger failed", "error", sErr)
+					}
+				}
+				continue
+			}
+
+			for _, r := range results {
+				switch r.Status {
+				case "imported":
+					l.Info(fmt.Sprintf("    [OK] %s", shortLogPath(r.Path)))
+				case "skipped":
+					l.Warn(fmt.Sprintf("    [SKIP] %s - %s", shortLogPath(r.Path), r.Message))
+				case "rejected":
+					l.Error(fmt.Sprintf("    [REJECT] %s - %s", shortLogPath(r.Path), r.Message))
+				}
+			}
+		}
+	}
 }
 
 func runConfigList(cmd *cobra.Command, args []string) error {
