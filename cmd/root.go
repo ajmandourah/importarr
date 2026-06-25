@@ -102,22 +102,24 @@ func runScan(cmd *cobra.Command, args []string) error {
 	l := logger.New()
 
 	for _, inst := range instances {
+		il := l.With("type", strings.ToUpper(inst.Type))
+
 		client, err := api.NewClient(inst)
 		if err != nil {
-			l.Error("failed to create client", "instance", inst.Name, "error", err)
+			il.Error("failed to create client", "error", err)
 			continue
 		}
 
 		records, err := client.GetQueue()
 		if err != nil {
-			l.Error("failed to fetch queue", "instance", inst.Name, "error", err)
+			il.Error("failed to fetch queue", "error", err)
 			continue
 		}
 
-		l.Info(fmt.Sprintf("[%s] Found %d stuck item(s)", inst.Name, len(records)))
+		il.Info(fmt.Sprintf("[%s] Found %d stuck item(s)", inst.Name, len(records)))
 		for _, r := range records {
 			msg := extractMessage(r.StatusMessages)
-			l.Info(fmt.Sprintf("  #%d %s [%s]", r.ID, mauveStyle.Render(r.Title), msg))
+			il.Info(fmt.Sprintf("  #%d %s [%s]", r.ID, mauveStyle.Render(r.Title), msg))
 		}
 	}
 
@@ -141,37 +143,39 @@ func runImport(cmd *cobra.Command, args []string) error {
 	totalOk, totalErr := 0, 0
 
 	for _, inst := range instances {
+		il := l.With("type", strings.ToUpper(inst.Type))
+
 		client, err := api.NewClient(inst)
 		if err != nil {
-			l.Error("failed to create client", "instance", inst.Name, "error", err)
+			il.Error("failed to create client", "error", err)
 			continue
 		}
 
 		records, err := client.GetQueue()
 		if err != nil {
-			l.Error("failed to fetch queue", "instance", inst.Name, "error", err)
+			il.Error("failed to fetch queue", "error", err)
 			continue
 		}
 
 		if len(records) == 0 {
-			l.Info(fmt.Sprintf("[%s] No stuck items found", inst.Name))
+			il.Info(fmt.Sprintf("[%s] No stuck items found", inst.Name))
 			continue
 		}
 
-		l.Info(fmt.Sprintf("[%s] Processing %d stuck item(s)...", inst.Name, len(records)))
+		il.Info(fmt.Sprintf("[%s] Processing %d stuck item(s)...", inst.Name, len(records)))
 
 		for _, record := range records {
-			l.Info(fmt.Sprintf("  Processing: %s", mauveStyle.Render(record.Title)))
+			il.Info(fmt.Sprintf("  Processing: %s", mauveStyle.Render(record.Title)))
 
 			files, err := client.GetManualImport(record)
 			if err != nil {
-				l.Error("  manualimport GET failed", "error", err)
+				il.Error("  manualimport GET failed", "error", err)
 				if fallback {
 					if rmErr := client.RemoveFromQueue(record.ID); rmErr != nil {
-						l.Error("  remove failed", "error", rmErr)
+						il.Error("  remove failed", "error", rmErr)
 					}
 					if sErr := client.TriggerSearch(record.SeriesOrMovieID(), record.SeasonNumber); sErr != nil {
-						l.Error("  search trigger failed", "error", sErr)
+						il.Error("  search trigger failed", "error", sErr)
 					}
 				}
 				totalErr++
@@ -179,13 +183,13 @@ func runImport(cmd *cobra.Command, args []string) error {
 			}
 
 			if len(files) == 0 {
-				l.Warn("  No importable files found")
+				il.Warn("  No importable files found")
 				if fallback {
 					if rmErr := client.RemoveFromQueue(record.ID); rmErr != nil {
-						l.Error("  remove failed", "error", rmErr)
+						il.Error("  remove failed", "error", rmErr)
 					}
 					if sErr := client.TriggerSearch(record.SeriesOrMovieID(), record.SeasonNumber); sErr != nil {
-						l.Error("  search trigger failed", "error", sErr)
+						il.Error("  search trigger failed", "error", sErr)
 					}
 				}
 				totalErr++
@@ -194,13 +198,13 @@ func runImport(cmd *cobra.Command, args []string) error {
 
 			results, err := client.PostManualImport(files)
 			if err != nil {
-				l.Error("  import failed", "error", err)
+				il.Error("  import failed", "error", err)
 				if fallback {
 					if rmErr := client.RemoveFromQueue(record.ID); rmErr != nil {
-						l.Error("  remove failed", "error", rmErr)
+						il.Error("  remove failed", "error", rmErr)
 					}
 					if sErr := client.TriggerSearch(record.SeriesOrMovieID(), record.SeasonNumber); sErr != nil {
-						l.Error("  search trigger failed", "error", sErr)
+						il.Error("  search trigger failed", "error", sErr)
 					}
 				}
 				totalErr++
@@ -210,18 +214,18 @@ func runImport(cmd *cobra.Command, args []string) error {
 			for _, r := range results {
 				switch r.Status {
 				case "imported":
-					l.Info(fmt.Sprintf("    [OK] %s", shortLogPath(r.Path)))
+					il.Info(fmt.Sprintf("    [OK] %s", shortLogPath(r.Path)))
 					totalOk++
 				case "skipped":
-					l.Warn(fmt.Sprintf("    [SKIP] %s - %s", shortLogPath(r.Path), r.Message))
+					il.Warn(fmt.Sprintf("    [SKIP] %s - %s", shortLogPath(r.Path), r.Message))
 				case "rejected":
-					l.Error(fmt.Sprintf("    [REJECT] %s - %s", shortLogPath(r.Path), r.Message))
+					il.Error(fmt.Sprintf("    [REJECT] %s - %s", shortLogPath(r.Path), r.Message))
 					totalErr++
 				}
 			}
 		}
 
-		l.Info(fmt.Sprintf("[%s] Done", inst.Name))
+		il.Info(fmt.Sprintf("[%s] Done", inst.Name))
 	}
 
 	l.Info(fmt.Sprintf("Total - Imported: %d, Failed: %d", totalOk, totalErr))
@@ -250,50 +254,52 @@ func runWatch(cmd *cobra.Command, args []string) error {
 
 func runImportLoop(instances []models.Instance, fallback bool, l *log.Logger) {
 	for _, inst := range instances {
+		il := l.With("type", strings.ToUpper(inst.Type))
+
 		client, err := api.NewClient(inst)
 		if err != nil {
-			l.Error("failed to create client", "instance", inst.Name, "error", err)
+			il.Error("failed to create client", "error", err)
 			continue
 		}
 
 		records, err := client.GetQueue()
 		if err != nil {
-			l.Error("failed to fetch queue", "instance", inst.Name, "error", err)
+			il.Error("failed to fetch queue", "error", err)
 			continue
 		}
 
 		if len(records) == 0 {
-			l.Info(fmt.Sprintf("[%s] No stuck items", inst.Name))
+			il.Info(fmt.Sprintf("[%s] No stuck items", inst.Name))
 			continue
 		}
 
-		l.Info(fmt.Sprintf("[%s] Processing %d stuck item(s)...", inst.Name, len(records)))
+		il.Info(fmt.Sprintf("[%s] Processing %d stuck item(s)...", inst.Name, len(records)))
 
 		for _, record := range records {
-			l.Info(fmt.Sprintf("  Processing: %s", mauveStyle.Render(record.Title)))
+			il.Info(fmt.Sprintf("  Processing: %s", mauveStyle.Render(record.Title)))
 
 			files, err := client.GetManualImport(record)
 			if err != nil {
-				l.Error("  manualimport GET failed", "error", err)
+				il.Error("  manualimport GET failed", "error", err)
 				if fallback {
 					if rmErr := client.RemoveFromQueue(record.ID); rmErr != nil {
-						l.Error("  remove failed", "error", rmErr)
+						il.Error("  remove failed", "error", rmErr)
 					}
 					if sErr := client.TriggerSearch(record.SeriesOrMovieID(), record.SeasonNumber); sErr != nil {
-						l.Error("  search trigger failed", "error", sErr)
+						il.Error("  search trigger failed", "error", sErr)
 					}
 				}
 				continue
 			}
 
 			if len(files) == 0 {
-				l.Warn("  No importable files found")
+				il.Warn("  No importable files found")
 				if fallback {
 					if rmErr := client.RemoveFromQueue(record.ID); rmErr != nil {
-						l.Error("  remove failed", "error", rmErr)
+						il.Error("  remove failed", "error", rmErr)
 					}
 					if sErr := client.TriggerSearch(record.SeriesOrMovieID(), record.SeasonNumber); sErr != nil {
-						l.Error("  search trigger failed", "error", sErr)
+						il.Error("  search trigger failed", "error", sErr)
 					}
 				}
 				continue
@@ -301,13 +307,13 @@ func runImportLoop(instances []models.Instance, fallback bool, l *log.Logger) {
 
 			results, err := client.PostManualImport(files)
 			if err != nil {
-				l.Error("  import failed", "error", err)
+				il.Error("  import failed", "error", err)
 				if fallback {
 					if rmErr := client.RemoveFromQueue(record.ID); rmErr != nil {
-						l.Error("  remove failed", "error", rmErr)
+						il.Error("  remove failed", "error", rmErr)
 					}
 					if sErr := client.TriggerSearch(record.SeriesOrMovieID(), record.SeasonNumber); sErr != nil {
-						l.Error("  search trigger failed", "error", sErr)
+						il.Error("  search trigger failed", "error", sErr)
 					}
 				}
 				continue
@@ -316,11 +322,11 @@ func runImportLoop(instances []models.Instance, fallback bool, l *log.Logger) {
 			for _, r := range results {
 				switch r.Status {
 				case "imported":
-					l.Info(fmt.Sprintf("    [OK] %s", shortLogPath(r.Path)))
+					il.Info(fmt.Sprintf("    [OK] %s", shortLogPath(r.Path)))
 				case "skipped":
-					l.Warn(fmt.Sprintf("    [SKIP] %s - %s", shortLogPath(r.Path), r.Message))
+					il.Warn(fmt.Sprintf("    [SKIP] %s - %s", shortLogPath(r.Path), r.Message))
 				case "rejected":
-					l.Error(fmt.Sprintf("    [REJECT] %s - %s", shortLogPath(r.Path), r.Message))
+					il.Error(fmt.Sprintf("    [REJECT] %s - %s", shortLogPath(r.Path), r.Message))
 				}
 			}
 		}

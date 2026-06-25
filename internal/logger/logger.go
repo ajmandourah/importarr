@@ -62,6 +62,10 @@ func init() {
 
 	s.Value = lipgloss.NewStyle().
 		Foreground(catppuText)
+
+	s.Values["type"] = lipgloss.NewStyle().
+		Foreground(catppuTeal).
+		Bold(true)
 }
 
 func New() *log.Logger {
