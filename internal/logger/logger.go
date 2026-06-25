@@ -11,6 +11,7 @@ import (
 var (
 	catppuBase   = lipgloss.Color("#1E1E2E")
 	catppuMauve  = lipgloss.Color("#CBA6F7")
+	catppuPeach  = lipgloss.Color("#FFCDD6")
 	catppuTeal   = lipgloss.Color("#94E2D5")
 	catppuYellow = lipgloss.Color("#F9E2AF")
 	catppuRed    = lipgloss.Color("#F38BA8")
@@ -83,9 +84,13 @@ func Debug() *log.Logger {
 
 func ForInstance(instType string) *log.Logger {
 	l := New()
+	bg := catppuMauve
+	if strings.ToLower(instType) == "radarr" {
+		bg = catppuPeach
+	}
 	badge := lipgloss.NewStyle().
 		Foreground(catppuBase).
-		Background(catppuTeal).
+		Background(bg).
 		Bold(true).
 		Padding(0, 1).
 		Render(strings.ToUpper(instType))
