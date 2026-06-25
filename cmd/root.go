@@ -99,10 +99,8 @@ func runScan(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	l := logger.New()
-
 	for _, inst := range instances {
-		il := l.With("type", strings.ToUpper(inst.Type))
+		il := logger.ForInstance(inst.Type)
 
 		client, err := api.NewClient(inst)
 		if err != nil {
@@ -143,7 +141,7 @@ func runImport(cmd *cobra.Command, args []string) error {
 	totalOk, totalErr := 0, 0
 
 	for _, inst := range instances {
-		il := l.With("type", strings.ToUpper(inst.Type))
+		il := logger.ForInstance(inst.Type)
 
 		client, err := api.NewClient(inst)
 		if err != nil {
@@ -254,7 +252,7 @@ func runWatch(cmd *cobra.Command, args []string) error {
 
 func runImportLoop(instances []models.Instance, fallback bool, l *log.Logger) {
 	for _, inst := range instances {
-		il := l.With("type", strings.ToUpper(inst.Type))
+		il := logger.ForInstance(inst.Type)
 
 		client, err := api.NewClient(inst)
 		if err != nil {

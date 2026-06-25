@@ -2,6 +2,7 @@ package logger
 
 import (
 	"os"
+	"strings"
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/log"
@@ -63,9 +64,6 @@ func init() {
 	s.Value = lipgloss.NewStyle().
 		Foreground(catppuText)
 
-	s.Values["type"] = lipgloss.NewStyle().
-		Foreground(catppuTeal).
-		Bold(true)
 }
 
 func New() *log.Logger {
@@ -80,5 +78,17 @@ func New() *log.Logger {
 func Debug() *log.Logger {
 	l := New()
 	l.SetLevel(log.DebugLevel)
+	return l
+}
+
+func ForInstance(instType string) *log.Logger {
+	l := New()
+	badge := lipgloss.NewStyle().
+		Foreground(catppuBase).
+		Background(catppuTeal).
+		Bold(true).
+		Padding(0, 1).
+		Render(strings.ToUpper(instType))
+	l.SetPrefix(badge + " ")
 	return l
 }
