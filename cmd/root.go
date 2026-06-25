@@ -114,7 +114,7 @@ func runScan(cmd *cobra.Command, args []string) error {
 			continue
 		}
 
-		il.Info(fmt.Sprintf("[%s] Found %d stuck item(s)", inst.Name, len(records)))
+		il.Info(fmt.Sprintf("Found %d stuck item(s)", len(records)))
 		for _, r := range records {
 			msg := extractMessage(r.StatusMessages)
 			il.Info(fmt.Sprintf("  #%d %s [%s]", r.ID, mauveStyle.Render(r.Title), msg))
@@ -156,11 +156,11 @@ func runImport(cmd *cobra.Command, args []string) error {
 		}
 
 		if len(records) == 0 {
-			il.Info(fmt.Sprintf("[%s] No stuck items found", inst.Name))
+			il.Info("No stuck items found")
 			continue
 		}
 
-		il.Info(fmt.Sprintf("[%s] Processing %d stuck item(s)...", inst.Name, len(records)))
+		il.Info(fmt.Sprintf("Processing %d stuck item(s)...", len(records)))
 
 		for _, record := range records {
 			il.Info(fmt.Sprintf("  Processing: %s", mauveStyle.Render(record.Title)))
@@ -223,7 +223,7 @@ func runImport(cmd *cobra.Command, args []string) error {
 			}
 		}
 
-		il.Info(fmt.Sprintf("[%s] Done", inst.Name))
+		il.Info("Done")
 	}
 
 	l.Info(fmt.Sprintf("Total - Imported: %d, Failed: %d", totalOk, totalErr))
@@ -267,11 +267,11 @@ func runImportLoop(instances []models.Instance, fallback bool, l *log.Logger) {
 		}
 
 		if len(records) == 0 {
-			il.Info(fmt.Sprintf("[%s] No stuck items", inst.Name))
+			il.Info("No stuck items")
 			continue
 		}
 
-		il.Info(fmt.Sprintf("[%s] Processing %d stuck item(s)...", inst.Name, len(records)))
+		il.Info(fmt.Sprintf("Processing %d stuck item(s)...", len(records)))
 
 		for _, record := range records {
 			il.Info(fmt.Sprintf("  Processing: %s", mauveStyle.Render(record.Title)))
