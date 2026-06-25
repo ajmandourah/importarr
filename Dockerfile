@@ -12,6 +12,8 @@ RUN apk --no-cache add ca-certificates
 WORKDIR /app
 COPY --from=builder /app/importarr .
 
+ARG VERSION
+ENV VERSION=${VERSION:-dev}
 ENV TZ=UTC
 
 ENTRYPOINT ["./importarr"]
