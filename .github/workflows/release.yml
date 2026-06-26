@@ -53,9 +53,11 @@ jobs:
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-          logout: false
+          username: ${{ github.actor | lowercase }}
+          password: ${{ secrets.GHCR_TOKEN }}
+
+      - name: Verify login
+        run: docker info | grep -A 5 "Server Version"
 
       - name: Extract tag
         id: tag
