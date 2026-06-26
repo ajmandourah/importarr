@@ -23,7 +23,7 @@ jobs:
         with:
           go-version: "1.25"
 
-      - name: Run GoReleaser
+      - name: GoReleaser
         uses: goreleaser/goreleaser-action@v6
         with:
           distribution: goreleaser
@@ -32,16 +32,18 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build binary
-        run: CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o importarr .
-
       - name: Login to GHCR
-        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build and push image
-        run: |
-          TAG=${GITHUB_REF#refs/tags/v}
-          docker build -t ghcr.io/${{ github.repository }}:${TAG} .
-          docker tag ghcr.io/${{ github.repository }}:${TAG} ghcr.io/${{ github.repository }}:latest
-          docker push ghcr.io/${{ github.repository }}:${TAG}
-          docker push ghcr.io/${{ github.repository }}:latest
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository }}:${{ github.ref_name }}
+            ghcr.io/${{ github.repository }}:latest
