@@ -19,16 +19,12 @@ builds:
     binary: importarr
 
 archives:
-  - format: tar.gz
-    name_template: >-
-      {{ .ProjectName }}_
-      {{- .Os }}_
-      {{- if eq .Arch "amd64" }}amd64
-      {{- else if eq .Arch "arm64" }}arm64
-      {{- else }}{{ .Arch }}{{ end }}
-    format_overrides:
+  - format_overrides:
       - goos: windows
         format: zip
+
+release:
+  replace_existing_artifacts: true
 
 checksum:
   name_template: "checksums.txt"
