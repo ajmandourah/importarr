@@ -107,11 +107,17 @@ Run in watch mode:
 docker run -v $(pwd)/.env:/app/.env ghcr.io/ajmandourah/importarr:latest watch -t 5m
 ```
 
-Build locally:
-
-```bash
-docker build -t importarr .
-docker run -v $(pwd)/.env:/app/.env importarr watch -t 5m
+Docker compose:
+```yaml
+services:
+    importarr:
+        volumes:
+            - $(pwd)/.env:/app/.env
+            # Optional config.yaml for multiple instances
+            # - $(pwd)/config.yaml:/app/config.yaml
+        image: ghcr.io/ajmandourah/importarr:latest
+        command: watch -t 10m
+        restart: unless-stopped
 ```
 
 ## Commands
