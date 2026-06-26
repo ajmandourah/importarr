@@ -1,3 +1,7 @@
+<p align="center">
+<img height="44" alt="image" src="https://github.com/user-attachments/assets/75c10d10-5ebc-4f6a-b762-d0e971af7f97" />
+</p>
+
 # importarr
 
 Force import stuck queue items in Sonarr and Radarr that fail automatic import.
