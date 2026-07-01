@@ -160,6 +160,7 @@ func runImport(cmd *cobra.Command, args []string) error {
 			continue
 		}
 
+		records = api.DeduplicateByOutputPath(records)
 		il.Info(fmt.Sprintf("Processing %d stuck item(s)...", len(records)))
 
 		for _, record := range records {
@@ -271,6 +272,7 @@ func runImportLoop(instances []models.Instance, fallback bool, l *log.Logger) {
 			continue
 		}
 
+		records = api.DeduplicateByOutputPath(records)
 		il.Info(fmt.Sprintf("Processing %d stuck item(s)...", len(records)))
 
 		for _, record := range records {
