@@ -87,6 +87,18 @@ func (b *baseClient) request(method, path string, body interface{}, resp interfa
 	return nil
 }
 
+func DeduplicateByOutputPath(records []models.QueueRecord) []models.QueueRecord {
+	seen := make(map[string]bool)
+	var deduped []models.QueueRecord
+	for _, r := range records {
+		if !seen[r.OutputPath] {
+			seen[r.OutputPath] = true
+			deduped = append(deduped, r)
+		}
+	}
+	return deduped
+}
+
 func isStuck(record models.QueueRecord) bool {
 	for _, sm := range record.StatusMessages {
 		for _, msg := range sm.Messages {

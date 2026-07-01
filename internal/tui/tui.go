@@ -205,6 +205,7 @@ func (a *App) importInstance(inst models.Instance) {
 		return
 	}
 
+	records = api.DeduplicateByOutputPath(records)
 	a.progress.Records = records
 	a.progress.Phase = fmt.Sprintf("Processing %d stuck item(s)...", len(records))
 
